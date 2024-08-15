@@ -3,19 +3,7 @@ library(survminer)
 library(ggplot2)
 library(ggsci)
 library(survival)
-#删除benzene完全缺失的人年1555#
-missing_both <- subset(data2, is.na(av3bz) & is.na(av5bz)& is.na(bz))
-num_missing_both <- nrow(missing_both)
-print(num_missing_both)
-missing_bz_rows <- sum(is.na(data2$bz))
-print(missing_bz_rows)
-subset_data2 <- subset(data2, !is.na(av3bz) & !is.na(av5bz))
-data2<-subset_data2
-remove(subset_data2)
-remove(missing_both)
-hist(data2$pm25)
-hist(data2$pm25)
-#连续变量调整数量级#
+#Adjust the units for air pollutants.#
 data2$pm25_10<-data2$pm25/10
 data2$av3pm25_10<-data2$av3pm25/10
 data2$av5pm25_10<-data2$av5pm25/10
@@ -40,8 +28,7 @@ data22 <- data2[data2$locationchange <= 10000, ]
 objects <- ls()  
 objects_to_remove <- setdiff(objects, "data22")  
 rm(list = objects_to_remove)
-###总体模型######################################################
-
+###total model######################################################
 #pm25#
 pm25<-coxph(Surv(time,time2,ec) ~ agegroup + gender+educationgroup+urbangroup+familyhistory+BMIgroup
             +smokingstatusgroup+secondhandsomke+alcoholintakegroup2+cookedvegetablegroup
@@ -406,10 +393,7 @@ car::vif(av5bz_pm25_10)
 cox.zph(av5bz_pm25)
 cox.zph(av5bz_pm25_10)
 
-
-
-
-###鳞癌分层分析###########
+###Stratified analysis of squamous cell carcinoma###########
 data3 <- data22[!(data22$histology %in% c(1, 2)), ]
 table(data3$ec)
 scpm25<-coxph(Surv(time,time2,ec) ~ agegroup + gender+educationgroup+urbangroup+familyhistory+BMIgroup
@@ -778,7 +762,7 @@ cox.zph(scav5bz_pm25)
 cox.zph(scav5bz_pm25_01)
 
 
-##腺癌分型################
+##Stratified analysis of adenocarcinoma##
 data4 <- data22[!(data22$histology %in% c(0, 2)), ]
 hist(data4$bz_01)
 table(data4$ec)
@@ -1146,7 +1130,7 @@ car::vif(acav5bz_pm25)
 car::vif(acav5bz_pm25_01)
 cox.zph(acav5bz_pm25)
 cox.zph(acav5bz_pm25_01)
-##样条图###############
+##Restricted cubic splines.###############
 #SO2#
 data22 <- data2[complete.cases(data2$av5so2), ]
 ddist <- datadist(data22)
@@ -1464,11 +1448,7 @@ optimized_plot <- ggplot(Pre_av5bz_filtered, aes(x = av5bz, y = Predicted_HR)) +
 print(optimized_plot)
 
 
-
-
-
-
-#######no2分层分析################
+#######Stratified analysis of NO₂析################
 #pm25#
 av5pm25group_levels <- levels(data22$av5pm25group)
 for (level in av5pm25group_levels) {
@@ -1661,7 +1641,7 @@ av5no2_METgroup_2<-coxph(Surv(time,time2,ec) ~ agegroup + gender+educationgroup+
                      +incomegroup +gastricreflux+METgroup*av5no2_10+av5pm25group, data = data222)
 anova(av5no2_METgroup_1,av5no2_METgroup_2)
 remove(data222)
-##nox分层分析#################
+##Stratified analysis ofnox################
 #pm25#
 av5pm25group_levels <- levels(data22$av5pm25group)
 for (level in av5pm25group_levels) {
@@ -1842,7 +1822,7 @@ av5nox_METgroup_2<-coxph(Surv(time,time2,ec) ~ agegroup + gender+educationgroup+
                          +incomegroup +gastricreflux+METgroup*av5nox_10+av5pm25group, data = data222)
 anova(av5nox_METgroup_1,av5nox_METgroup_2)
 remove(data222)
-##so2分层分析##############
+##Stratified analysis of so2##############
 #pm25#
 av5pm25group_levels <- levels(data22$av5pm25group)
 for (level in av5pm25group_levels) {
@@ -2022,7 +2002,7 @@ av5so2_METgroup_2<-coxph(Surv(time,time2,ec) ~ agegroup + gender+educationgroup+
                          +incomegroup +gastricreflux+METgroup*av5so2+av5pm25group, data = data222)
 anova(av5so2_METgroup_1,av5so2_METgroup_2)
 remove(data222)
-##bz分层分析#######
+##Stratified analysis of benzene######
 #pm25#
 av5pm25group_levels <- levels(data22$av5pm25group)
 for (level in av5pm25group_levels) {
@@ -2201,7 +2181,7 @@ av5bz_01_METgroup_2<-coxph(Surv(time,time2,ec) ~ agegroup + gender+educationgrou
                          +solidfuelcookinggroup+hotdrinktempgroup+sittimegroup+waisthipratiogroup
                          +incomegroup +gastricreflux+METgroup*av5bz_01+av5pm25group, data = data222)
 anova(av5bz_01_METgroup_1,av5bz_01_METgroup_2)
-##计算分层分析的Cochrane’s Q test#####
+##Cochrane’s Q test#####
 install.packages("metafor")
 library(metafor)
 #nox-pm2.5#
@@ -2424,13 +2404,15 @@ print(res)
 
 
 
-##森林图############
-###森林图no2######################
+##Forest plot.#####
+###Before this step, we manually organized the results 
+##of the Cox regression into a CSV file####
+###Forest plot.no2######################
 library(forestploter)
 library(ggplot2)
 library(grid)
 #no2#
-dt <- read.csv("dt准备1.csv",check.names = F,
+dt <- read.csv("no2.csv",check.names = F,
                strip.white =F,
                # 全部读取为字符变量
                colClasses ="character")
@@ -2486,8 +2468,8 @@ png('no2.png', res = 300, width = p_wh[1], height = p_wh[2], units = "in")
 pp
 dev.off()
 #或手动保存为pdf#
-###森林图nox#######
-dt <- read.csv("森林图模板 - nox.csv",check.names = F,
+###Forest plot.nox#######
+dt <- read.csv("nox.csv",check.names = F,
                strip.white =F,
                # 全部读取为字符变量
                colClasses ="character")
@@ -2544,8 +2526,8 @@ pp
 dev.off()
 #或手动保存为pdf#
 
-###森林图so2#######
-dt <- read.csv("森林图模板 - so2.csv",check.names = F,
+###Forest plot.so2#######
+dt <- read.csv("so2.csv",check.names = F,
                strip.white =F,
                # 全部读取为字符变量
                colClasses ="character")
@@ -2602,8 +2584,8 @@ pp
 dev.off()
 #或手动保存为pdf#
 
-###森林图bz#######
-dt <- read.csv("森林图模板 - bz.csv",check.names = F,
+###Forest plot.benzene#######
+dt <- read.csv("bz.csv",check.names = F,
                strip.white =F,
                # 全部读取为字符变量
                colClasses ="character")
