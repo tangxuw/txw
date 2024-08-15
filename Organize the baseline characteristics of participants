@@ -1,0 +1,1087 @@
+#加载需要的包#
+library(readxl)
+library(readr)
+library(dplyr)
+#########ukbdata, merged_data111#################
+ukb677331 <- read_csv("E:/UKB数据库/ukb677331.csv")
+### calculation of Change in residential address distance#####################
+ukblocation <- read_csv("E:/UKB数据库/ukblocation.csv")
+merged_data111 <- read_csv("E:/Download/高分辨率数据/欧洲/ukb匹配环境数据/merged_data111.csv")
+num_vars <- 14
+for (i in 1:num_vars) {
+  new_var_name <- paste0("x", i)
+  ukblocation[[new_var_name]] <- 0
+  missing_index <- is.na(ukblocation[[paste0("22702-0.", i)]])
+  ukblocation[[new_var_name]][missing_index] <- 0
+  non_missing_index <- !missing_index
+  ukblocation[[new_var_name]][non_missing_index] <- abs(ukblocation[[paste0("22702-0.", i)]][non_missing_index] - ukblocation[["22702-0.0"]][non_missing_index])
+}
+for (i in 1:num_vars) {
+  new_var_name <- paste0("y", i)
+  ukblocation[[new_var_name]] <- 0
+  missing_index <- is.na(ukblocation[[paste0("22704-0.", i)]])
+  ukblocation[[new_var_name]][missing_index] <- 0
+  non_missing_index <- !missing_index
+  ukblocation[[new_var_name]][non_missing_index] <- abs(ukblocation[[paste0("22704-0.", i)]][non_missing_index] - ukblocation[["22704-0.0"]][non_missing_index])
+}
+for (i in 1:num_vars) {
+  new_var_name <- paste0("d", i)
+  ukblocation[[new_var_name]] <- sqrt(ukblocation[[paste0("x", i)]]^2 + ukblocation[[paste0("y", i)]]^2)
+}
+ukblocation$locationchange <- do.call(pmax, ukblocation[grep("^d", names(ukblocation))])
+ukblocation <- subset(ukblocation, select = c(eid, locationchange))
+ukbdata1 <- merge(ukb677331, merged_data111, by = "eid")
+ukbdata1 <- merge(ukbdata1, ukblocation, by = "eid")
+##Add some variables##
+ukbsup4<- read_csv("E:/UKB数据库/ukb677331.csv")
+ukbsup4[is.na(ukbsup4)] <- -1
+ukbsup4$gastricreflux <- 0
+variable_names <- grep("^20002-0.", names(ukbsup4), value = TRUE)
+ukbsup4$gastricreflux <- apply(ukbsup4[variable_names] == 1138, 1, function(x) any(x, na.rm = TRUE))
+ukbsup4$gastricreflux <- as.integer(ukbsup4$gastricreflux)
+table(ukbsup4$gastricreflux,useNA = "ifany")
+ukbsup4$oesophagitis <- 0
+ukbsup4$oesophagitis <- apply(ukbsup4[variable_names] == 1139, 1, function(x) any(x, na.rm = TRUE))
+ukbsup4$oesophagitis <- as.integer(ukbsup4$oesophagitis)
+ukbsup4$stricture <- 0
+ukbsup4$stricture <- apply(ukbsup4[variable_names] == 1140, 1, function(x) any(x, na.rm = TRUE))
+ukbsup4$stricture <- as.integer(ukbsup4$stricture)
+ukbsup4$varicies <- 0
+ukbsup4$varicies <- apply(ukbsup4[variable_names] == 1141, 1, function(x) any(x, na.rm = TRUE))
+ukbsup4$varicies <- as.integer(ukbsup4$varicies)
+table(ukbsup4$stricture)
+table(ukbsup4$varicies)
+table(ukbsup4$oesophagitis)
+ukbsup4_selected <- ukbsup4 %>%
+  select(eid, gastricreflux, stricture, varicies, oesophagitis)
+ukbdata1 <- merge(ukbdata1, ukbsup4_selected, by = "eid")
+data<-ukbdata1
+objects <- ls()  
+objects_to_remove <- setdiff(objects, "data")  
+rm(list = objects_to_remove)
+
+
+#ec1.Outcome definitions: 1 for the first occurrence of esophageal cancer, 2 for other cancers, and 0 for no cancer.#
+data <- data %>%
+  mutate_at(vars(`40006-0.0`:`40006-21.0`), list(
+    ec = ~case_when(
+      . %in% c("C150", "C151", "C152", "C153", "C154", "C155", "C156", "C157", "C158", "C159") ~ 1,
+      TRUE ~ NA_real_
+    )
+  ))
+table(data$`40006-0.0_ec`,useNA = "ifany")
+table(data$`40006-1.0_ec`,useNA = "ifany")
+table(data$`40006-2.0_ec`,useNA = "ifany")
+table(data$`40006-3.0_ec`,useNA = "ifany")
+table(data$`40006-4.0_ec`,useNA = "ifany")
+table(data$`40006-5.0_ec`,useNA = "ifany")
+table(data$`40006-6.0_ec`,useNA = "ifany")
+table(data$`40006-7.0_ec`,useNA = "ifany")
+table(data$`40006-8.0_ec`,useNA = "ifany")
+table(data$`40006-9.0_ec`,useNA = "ifany")
+table(data$`40006-10.0_ec`,useNA = "ifany")
+table(data$`40006-11.0_ec`,useNA = "ifany")
+table(data$`40006-12.0_ec`,useNA = "ifany")
+table(data$`40006-13.0_ec`,useNA = "ifany")
+table(data$`40006-14.0_ec`,useNA = "ifany")
+table(data$`40006-15.0_ec`,useNA = "ifany")
+table(data$`40006-16.0_ec`,useNA = "ifany")
+table(data$`40006-17.0_ec`,useNA = "ifany")
+table(data$`40006-18.0_ec`,useNA = "ifany")
+table(data$`40006-19.0_ec`,useNA = "ifany")
+table(data$`40006-20.0_ec`,useNA = "ifany")
+table(data$`40006-21.0_ec`,useNA = "ifany")
+
+#Check for any cases where the diagnosis date for confirmed patients is missing.#
+count_rows <- nrow(subset(data, data$`40006-0.0_ec` == 1 & is.na(data$`40005-0.0`)))
+cat(count_rows)
+count_rows <- nrow(subset(data, data$`40006-1.0_ec` == 1 & is.na(data$`40005-1.0`)))
+cat(count_rows)
+count_rows <- nrow(subset(data, data$`40006-2.0._ec` == 1 & is.na(data$`40005-2.0`)))
+cat(count_rows)
+count_rows <- nrow(subset(data, data$`40006-3.0._ec` == 1 & is.na(data$`40005-3.0`)))
+cat(count_rows)
+count_rows <- nrow(subset(data, data$`40006-4.0._ec` == 1 & is.na(data$`40005-4.0`)))
+cat(count_rows)
+count_rows <- nrow(subset(data, data$`40006-5.0._ec` == 1 & is.na(data$`40005-5.0`)))
+cat(count_rows)
+count_rows <- nrow(subset(data, data$`40006-6.0._ec` == 1 & is.na(data$`40005-6.0`)))
+cat(count_rows)
+#Define esophageal cancer.
+data$ec <- ifelse(!is.na(data$`40006-0.0_ec`), data$`40006-0.0_ec`,
+                  ifelse(!is.na(data$`40006-1.0_ec`), data$`40006-1.0_ec`,
+                         ifelse(!is.na(data$`40006-2.0_ec`), data$`40006-2.0_ec`,
+                                ifelse(!is.na(data$`40006-3.0_ec`), data$`40006-3.0_ec`,
+                                       ifelse(!is.na(data$`40006-4.0_ec`), data$`40006-4.0_ec`, NA)))))
+
+
+table(data$ec,useNA = "ifany")
+#Organize the variables related to the onset time of esophageal cancer#
+data$`40005-0.0_ec` <- ifelse(!is.na(data$`40006-0.0_ec`) & data$`40006-0.0_ec` == 1,
+                              as.numeric(format(as.Date(data$`40005-0.0`, format="%Y-%m-%d"), "%Y")),
+                              NA)
+data$`40005-1.0_ec` <- ifelse(!is.na(data$`40006-1.0_ec`) & data$`40006-1.0_ec` == 1,
+                              as.numeric(format(as.Date(data$`40005-1.0`, format="%Y-%m-%d"), "%Y")),
+                              NA)
+data$`40005-2.0_ec` <- ifelse(!is.na(data$`40006-2.0_ec`) & data$`40006-2.0_ec` == 1,
+                              as.numeric(format(as.Date(data$`40005-2.0`, format="%Y-%m-%d"), "%Y")),
+                              NA)
+data$`40005-3.0_ec` <- ifelse(!is.na(data$`40006-3.0_ec`) & data$`40006-3.0_ec` == 1,
+                              as.numeric(format(as.Date(data$`40005-3.0`, format="%Y-%m-%d"), "%Y")),
+                              NA)
+data$`40005-4.0_ec` <- ifelse(!is.na(data$`40006-4.0_ec`) & data$`40006-4.0_ec` == 1,
+                              as.numeric(format(as.Date(data$`40005-4.0`, format="%Y-%m-%d"), "%Y")),
+                              NA)
+table(data$`40005-0.0_ec`,useNA = "ifany")
+table(data$`40005-1.0_ec`,useNA = "ifany")
+table(data$`40005-2.0_ec`,useNA = "ifany")
+table(data$`40005-3.0_ec`,useNA = "ifany")
+table(data$`40005-4.0_ec`,useNA = "ifany")
+data$ectime <- ifelse(!is.na(data$`40005-0.0_ec`), data$`40005-0.0_ec`,
+                      ifelse(!is.na(data$`40005-1.0_ec`), data$`40005-1.0_ec`,
+                             ifelse(!is.na(data$`40005-2.0_ec`), data$`40005-2.0_ec`,
+                                    ifelse(!is.na(data$`40005-3.0_ec`), data$`40005-3.0_ec`,  
+                                           ifelse(!is.na(data$`40005-4.0_ec`), data$`40005-4.0_ec`,NA)))))
+table(data$ectime)
+count <- sum(data$ectime < 2010 & !is.na(data$ectime))
+print(count)
+#Organize variables related to tumor pathological classification.#
+data$`40011-0.0_ec` <- ifelse(is.na(data$`40006-0.0_ec`), NA,
+                              ifelse(data$`40006-0.0_ec` == 1, data$`40011-0.0`, NA))
+data$`40011-1.0_ec` <- ifelse(is.na(data$`40006-1.0_ec`), NA,
+                              ifelse(data$`40006-1.0_ec` == 1, data$`40011-1.0`, NA))
+data$`40011-2.0_ec` <- ifelse(is.na(data$`40006-2.0_ec`), NA,
+                              ifelse(data$`40006-2.0_ec` == 1, data$`40011-2.0`, NA))
+data$`40011-3.0_ec` <- ifelse(is.na(data$`40006-3.0_ec`), NA,
+                              ifelse(data$`40006-3.0_ec` == 1, data$`40011-3.0`, NA))
+data$`40011-4.0_ec` <- ifelse(is.na(data$`40006-4.0_ec`), NA,
+                              ifelse(data$`40006-4.0_ec` == 1, data$`40011-4.0`, NA))
+table(data$`40011-0.0_ec`,useNA = "ifany")
+table(data$`40011-1.0_ec`,useNA = "ifany")
+table(data$`40011-2.0_ec`,useNA = "ifany")
+table(data$`40011-3.0_ec`,useNA = "ifany")
+table(data$`40011-4.0_ec`,useNA = "ifany")
+data$histology <- ifelse(!is.na(data$`40011-0.0_ec`), data$`40011-0.0_ec`,
+                         ifelse(!is.na(data$`40011-1.0_ec`), data$`40011-1.0_ec`,
+                                ifelse(!is.na(data$`40011-2.0_ec`), data$`40011-2.0_ec`,
+                                       ifelse(!is.na(data$`40011-3.0_ec`), data$`40011-3.0_ec`, NA))))
+table(data$histology,useNA = "ifany")
+#Tumor classification (histology): 0 for squamous cell carcinoma, 1 for adenocarcinoma, and 2 for other types.#
+data$histology <- ifelse(data$histology == 8070, 0,
+                         ifelse(data$histology == 8140, 1,
+                                ifelse(!is.na(data$histology), 2, NA)))
+table(data$histology,useNA = "ifany")
+#End time: the endpoint, either death or diagnosis of esophageal cancer#
+data$deathtime <- as.integer(format(as.Date(data$`40000-0.0`, format = "%Y-%m-%d"), format = "%Y"))
+table(data$deathtime,useNA = "ifany")
+count <- sum(data$deathtime < 2010 & !is.na(data$deathtime))
+print(count)
+data$endtime <- ifelse(is.na(data$ectime) & is.na(data$deathtime), 2020,
+                       ifelse(is.na(data$ectime), data$deathtime,
+                              ifelse(is.na(data$deathtime), data$ectime, pmin(data$ectime, data$deathtime))))
+table(data$endtime,useNA = "ifany")
+data$endtime[data$endtime > 2020] <- 2020
+#rename the variables according to a consistent pattern#
+data <- data %>%
+  rename(dgt12005 = dgt120_2005r,
+         dgt12006 = dgt120_06,
+         dgt12007 = dgt120_07,
+         dgt12008 = dgt120_08,
+         dgt12009 = dgt120_09,
+         dgt12010 = dgt120_10,
+         dgt12011 = dgt120_11,
+         dgt12012 = dgt120_12)
+data <- data %>%
+  rename( pm102006=pm102006gh,
+          pm102007=pm102007g,
+          pm102008=pm102008g,
+          pm102009=pm102009g,
+          pm102010=pm102010g,
+          pm102011=pm102011g,
+          pm102012=pm102012g,
+          pm102013=pm102013g,
+          pm102014=pm102014g,
+          pm102015=pm102015g,
+          pm102016=pm102016g,
+          pm102017=pm102017g,
+          pm102018=pm102018g,
+          pm102019=pm102019g,
+          pm102020=pm102020g,
+          pm102021=pm102021g)
+
+data <- data %>%
+  rename( pm252003=pm252003grav,
+          pm252004=pm252004g,
+          pm252005=pm2505ac,
+          pm252006=pm252006gh,
+          pm252007=pm252007g,
+          pm252008=pm252008g,
+          pm252009=pm252009g,
+          pm252010=pm252010g,
+          pm252011=pm252011g,
+          pm252012=pm252012g,
+          pm252013=pm252013g,
+          pm252014=pm252014g,
+          pm252015=pm252015g,
+          pm252016=pm252016g,
+          pm252017=pm252017g,
+          pm252018=pm252018g,
+          pm252019=pm252019g,
+          pm252020=pm252020g,
+          pm252021=pm252021g)
+
+data <- data %>%
+  rename(so22002=so202annd,
+         so22003=so203ann,
+         so22004=so204ann,
+         so22005=so205ann,
+         so22006=so206ann,
+         so22007=so207ann,
+         so22008=so208ann,
+         so22009=so209ann,
+         so22010=so210ann,
+         so22011=so211ann,
+         so22012=so212ann,
+         so22013=so213ann,
+         so22014=so214ann)
+data <- data %>%
+  rename( pm252003=pm252003grav,
+          pm252004=pm252004g,
+          pm252005=pm2505ac,
+          pm252006=pm252006gh,
+          pm252007=pm252007g,
+          pm252008=pm252008g,
+          pm252009=pm252009g,
+          pm252010=pm252010g,
+          pm252011=pm252011g,
+          pm252012=pm252012g,
+          pm252013=pm252013g,
+          pm252014=pm252014g,
+          pm252015=pm252015g,
+          pm252016=pm252016g,
+          pm252017=pm252017g,
+          pm252018=pm252018g,
+          pm252019=pm252019g,
+          pm252020=pm252020g,
+          pm252021=pm252021g)
+
+
+
+
+
+
+#Exclude  individuals ###################
+count <- sum(data$endtime < 2010)
+cat(count)
+count<- sum(data$x == -500 & data$y == -500, na.rm = TRUE)
+cat(count)
+count_missing <- sum(is.na(data$x) & is.na(data$y))
+cat(count_missing )
+data <- data[!(data$x == -500 & data$y == -500), ]
+count<- sum(data$locationchange > 10000)
+cat(count)
+table(data$`54-0.0`,useNA = "ifany")
+table(data$endtime,useNA = "ifany")
+bz_na <- sum(rowSums(is.na(data[, c("bz2006","bz2007","bz2008","bz2009","bz2010", "bz2011", "bz2012", "bz2013", "bz2014", "bz2015", "bz2016", "bz2017", "bz2018", "bz2019", "bz2020", "bz2021")])) >= 16)
+cat(bz_na)
+pm25_na <- sum(rowSums(is.na(data[, c("pm252006","pm252007","pm252008","pm252009","pm252010", "pm252011", "pm252012", "pm252013", "pm252014", "pm252015", "pm252016", "pm252017", "pm252018", "pm252019", "pm252020", "pm252021")])) >= 16)
+cat(pm25_na)
+pm10_na <- sum(rowSums(is.na(data[, c("pm102006","pm102007","pm102008","pm102009","pm102010", "pm102011", "pm102012", "pm102013", "pm102014", "pm102015", "pm102016", "pm102017", "pm102018", "pm102019", "pm102020", "pm102021")])) >= 16)
+cat(pm10_na)
+data备份<-data
+data<-data备份
+data <- data[data$endtime >= 2010, ]
+data <- data[!(is.na(data$x) | is.na(data$y)), ]
+data<- data[!(rowSums(is.na(data[, c("bz2006","bz2007","bz2008","bz2009","bz2010", "bz2011", "bz2012", "bz2013", "bz2014", "bz2015", "bz2016", "bz2017", "bz2018", "bz2019", "bz2020", "bz2021")])) == 16), ]
+data <- data[data$locationchange <= 10000, ]
+
+#pm10#
+data <- data %>%
+  rename( pm102006=pm102006gh,
+          pm102007=pm102007g,
+          pm102008=pm102008g,
+          pm102009=pm102009g,
+          pm102010=pm102010g,
+          pm102011=pm102011g,
+          pm102012=pm102012g,
+          pm102013=pm102013g,
+          pm102014=pm102014g,
+          pm102015=pm102015g,
+          pm102016=pm102016g,
+          pm102017=pm102017g,
+          pm102018=pm102018g,
+          pm102019=pm102019g,
+          pm102020=pm102020g,
+          pm102021=pm102021g)
+#pm25#
+data <- data %>%
+  rename( pm252003=pm252003grav,
+          pm252004=pm252004g,
+          pm252005=pm2505ac,
+          pm252006=pm252006gh,
+          pm252007=pm252007g,
+          pm252008=pm252008g,
+          pm252009=pm252009g,
+          pm252010=pm252010g,
+          pm252011=pm252011g,
+          pm252012=pm252012g,
+          pm252013=pm252013g,
+          pm252014=pm252014g,
+          pm252015=pm252015g,
+          pm252016=pm252016g,
+          pm252017=pm252017g,
+          pm252018=pm252018g,
+          pm252019=pm252019g,
+          pm252020=pm252020g,
+          pm252021=pm252021g)
+#so2#
+data <- data %>%
+  rename(so22002=so202annd,
+         so22003=so203ann,
+         so22004=so204ann,
+         so22005=so205ann,
+         so22006=so206ann,
+         so22007=so207ann,
+         so22008=so208ann,
+         so22009=so209ann,
+         so22010=so210ann,
+         so22011=so211ann,
+         so22012=so212ann,
+         so22013=so213ann,
+         so22014=so214ann)
+#Organize the covariates.#
+#gender、birth、hip_cir、waist_cir#
+data <- data %>%
+  rename(gender=`31-0.0`,)
+data <- data %>%
+  rename(birth=`34-0.0`,)
+data <- data %>%
+  rename(hip_cir=`49-0.0`,
+         waist_cir=`48-0.0`)
+data$waisthipratio<-NA
+data$waisthipratio <- ifelse(is.na(data$waist_cir) | is.na(data$hip_cir), NA, data$waist_cir / data$hip_cir)
+hist(data$waisthipratio)
+
+q50waisthipratio<- median(data$waisthipratio, na.rm = TRUE)
+
+data$waisthipratio_group <- cut(data$waisthipratio, 
+                                breaks = c(-Inf, median_value, Inf),
+                                labels = c(1, 2),
+                                include.lowest = TRUE,
+                                right = FALSE)
+
+
+#Calculate the mean exposure to long-term air pollutants.#
+data$avpm25 <- rowMeans(data[, grep("^pm25(200[6-9]|201[0-9]|2020)$", names(data))])
+data$avpm10 <- rowMeans(data[, grep("^pm10(200[6-9]|201[0-9]|2020)$", names(data))])
+data$avno2 <- rowMeans(data[, grep("^no2(200[6-9]|201[0-9]|2020)$", names(data))])
+data$avnox <- rowMeans(data[, grep("^nox(200[6-9]|201[0-9]|2020)$", names(data))])
+data$avso2 <- rowMeans(data[, grep("^so2(200[6-9]|201[0-9]|2020)$", names(data))])
+data$avbz <- rowMeans(data[, grep("^bz(200[6-9]|201[0-9]|2020)$", names(data))])
+hist(data$avpm25)
+hist(data$avpm10)
+hist(data$avno2)
+hist(data$avnox)
+hist(data$avso2)
+hist(data$avbz)
+
+
+
+##Create Figure 2.####
+library(ggplot2)
+p <- ggplot(data, aes(x = avpm25)) +
+  geom_histogram(binwidth = 1, fill = "#ADD8E6", color = "black") +  # 设置bin宽度和颜色
+  theme_minimal() +  # 使用简洁的主题
+  theme(
+    axis.text = element_text(size = 18),  # 调整文字大小
+    axis.ticks = element_line(size = 1),  # 调整轴线大小
+    panel.grid.major = element_blank(),  # 移除主要网格线
+    panel.grid.minor = element_blank()  # 移除次要网格线
+  ) +
+  labs(title = "Annual average concentration of PM2.5") +  # 添加标题
+  scale_y_continuous(breaks = seq(0, 200000, by = 20000), labels = function(x) format(x, scientific = FALSE)) +  # 设置y轴刻度并避免科学计数法
+  scale_x_continuous(breaks = seq(0, 20, by = 5), labels = function(x) format(x, scientific = FALSE)) +  # 设置x轴刻度并避免科学计数法
+  xlab(NULL) +  # 取消x轴标签
+  ylab(NULL) +  # 取消y轴标签
+  theme(axis.line = element_line(color = "black", size = 0.5)) +  # 设置轴线颜色和大小
+  theme(axis.line.x = element_line(color = "black"), axis.line.y = element_line(color = "black")) +  # 设置x轴和y轴线的颜色
+  expand_limits(y = 0)  # 限制y轴的显示范围从0开始
+print(p)
+
+
+p <- ggplot(data, aes(x = avpm10)) +
+  geom_histogram(binwidth = 1, fill = "#ADD8E6", color = "black") +  # 设置bin宽度和颜色
+  theme_minimal() +  # 使用简洁的主题
+  theme(
+    axis.text = element_text(size = 18),  # 调整文字大小
+    axis.ticks = element_line(size = 1),  # 调整轴线大小
+    panel.grid.major = element_blank(),  # 移除主要网格线
+    panel.grid.minor = element_blank()  # 移除次要网格线
+  ) +
+  labs(title = "Annual average concentration of PM10") +  # 添加标题
+  scale_y_continuous(breaks = seq(0, 200000, by = 20000), labels = function(x) format(x, scientific = FALSE)) +  # 设置y轴刻度并避免科学计数法
+  scale_x_continuous(breaks = seq(0, 20, by = 5), labels = function(x) format(x, scientific = FALSE)) +  # 设置x轴刻度并避免科学计数法
+  xlab(NULL) +  # 取消x轴标签
+  ylab(NULL) +  # 取消y轴标签
+  theme(axis.line = element_line(color = "black", size = 0.5)) +  # 设置轴线颜色和大小
+  theme(axis.line.x = element_line(color = "black"), axis.line.y = element_line(color = "black")) +  # 设置x轴和y轴线的颜色
+  expand_limits(y = 0)  # 限制y轴的显示范围从0开始
+print(p)
+
+p <- ggplot(data, aes(x = avnox)) +
+  geom_histogram(binwidth = 10, fill = "#ADD8E6", color = "black") +  # 设置bin宽度和颜色
+  theme_minimal() +  # 使用x简洁的主题
+  theme(
+    axis.text = element_text(size = 18),  # 调整文字大小
+    axis.ticks = element_line(size = 1),  # 调整轴线大小
+    panel.grid.major = element_blank(),  # 移除主要网格线
+    panel.grid.minor = element_blank()  # 移除次要网格线
+  ) +
+  labs(title = "Annual average concentration of NOx") +  # 添加标题
+  scale_y_continuous(breaks = seq(0, 200000, by = 20000), labels = function(x) format(x, scientific = FALSE)) +  # 设置y轴刻度并避免科学计数法
+  scale_x_continuous(breaks = seq(0, 100, by = 30), labels = function(x) format(x, scientific = FALSE)) +  # 设置x轴刻度并避免科学计数法
+  xlab(NULL) +  # 取消x轴标签
+  ylab(NULL) +  # 取消y轴标签
+  theme(axis.line = element_line(color = "black", size = 0.5)) +  # 设置轴线颜色和大小
+  theme(axis.line.x = element_line(color = "black"), axis.line.y = element_line(color = "black")) +  # 设置x轴和y轴线的颜色
+  expand_limits(y = 0)  # 限制y轴的显示范围从0开始
+print(p)
+
+p <- ggplot(data, aes(x = avno2)) +
+  geom_histogram(binwidth = 5, fill = "#ADD8E6", color = "black") +  # 设置bin宽度和颜色
+  theme_minimal() +  # 使用x简洁的主题
+  theme(
+    axis.text = element_text(size = 18),  # 调整文字大小
+    axis.ticks = element_line(size = 1),  # 调整轴线大小
+    panel.grid.major = element_blank(),  # 移除主要网格线
+    panel.grid.minor = element_blank()  # 移除次要网格线
+  ) +
+  labs(title = "Annual average concentration of NO2") +  # 添加标题
+  scale_y_continuous(breaks = seq(0, 200000, by = 20000), labels = function(x) format(x, scientific = FALSE)) +  # 设置y轴刻度并避免科学计数法
+  scale_x_continuous(breaks = seq(0, 100, by = 20), labels = function(x) format(x, scientific = FALSE)) +  # 设置x轴刻度并避免科学计数法
+  xlab(NULL) +  # 取消x轴标签
+  ylab(NULL) +  # 取消y轴标签
+  theme(axis.line = element_line(color = "black", size = 0.5)) +  # 设置轴线颜色和大小
+  theme(axis.line.x = element_line(color = "black"), axis.line.y = element_line(color = "black")) +  # 设置x轴和y轴线的颜色
+  expand_limits(y = 0)  # 限制y轴的显示范围从0开始
+print(p)
+
+p <- ggplot(data, aes(x = avso2)) +
+  geom_histogram(binwidth = 0.5, fill = "#ADD8E6", color = "black") +  # 设置bin宽度和颜色
+  theme_minimal() +  # 使用x简洁的主题
+  theme(
+    axis.text = element_text(size = 18),  # 调整文字大小
+    axis.ticks = element_line(size = 1),  # 调整轴线大小
+    panel.grid.major = element_blank(),  # 移除主要网格线
+    panel.grid.minor = element_blank()  # 移除次要网格线
+  ) +
+  labs(title = "Annual average concentration of SO2") +  # 添加标题
+  scale_y_continuous(breaks = seq(0, 250000, by = 20000), labels = function(x) format(x, scientific = FALSE)) +  # 设置y轴刻度并避免科学计数法
+  scale_x_continuous(breaks = seq(0, 20, by = 3), labels = function(x) format(x, scientific = FALSE)) +  # 设置x轴刻度并避免科学计数法
+  xlab(NULL) +  # 取消x轴标签
+  ylab(NULL) +  # 取消y轴标签
+  theme(axis.line = element_line(color = "black", size = 0.5)) +  # 设置轴线颜色和大小
+  theme(axis.line.x = element_line(color = "black"), axis.line.y = element_line(color = "black")) +  # 设置x轴和y轴线的颜色
+  expand_limits(y = 0)  # 限制y轴的显示范围从0开始
+print(p)
+
+
+
+p <- ggplot(data, aes(x = avbz)) +
+  geom_histogram(binwidth = 0.1, fill = "#ADD8E6", color = "black") +  # 设置bin宽度和颜色
+  theme_minimal() +  # 使用x简洁的主题
+  theme(
+    axis.text = element_text(size = 18),  # 调整文字大小
+    axis.ticks = element_line(size = 1),  # 调整轴线大小
+    panel.grid.major = element_blank(),  # 移除主要网格线
+    panel.grid.minor = element_blank()  # 移除次要网格线
+  ) +
+  labs(title = "Annual average concentration of benzene") +  # 添加标题
+  scale_y_continuous(breaks = seq(0, 250000, by = 20000), labels = function(x) format(x, scientific = FALSE)) +  # 设置y轴刻度并避免科学计数法
+  scale_x_continuous(breaks = seq(0, 20, by = 0.5), labels = function(x) format(x, scientific = FALSE)) +  # 设置x轴刻度并避免科学计数法
+  xlab(NULL) +  # 取消x轴标签
+  ylab(NULL) +  # 取消y轴标签
+  theme(axis.line = element_line(color = "black", size = 0.5)) +  # 设置轴线颜色和大小
+  theme(axis.line.x = element_line(color = "black"), axis.line.y = element_line(color = "black")) +  # 设置x轴和y轴线的颜色
+  expand_limits(y = 0)  # 限制y轴的显示范围从0开始
+print(p)
+##Create Supplementary Figure 1.##
+library(reshape2)
+table(data$centre)
+centre_mapping <- c(
+  "11012" = "Barts",
+  "11021" = "Birmingham",
+  "11011" = "Bristol",
+  "11008" = "Bury",
+  "11003" = "Cardiff",
+  "11024" = "Cheadle",
+  "11020" = "Croydon",
+  "11005" = "Edinburgh",
+  "11004" = "Glasgow",
+  "11018" = "Hounslow",
+  "11010" = "Leeds",
+  "11016" = "Liverpool",
+  "11001" = "Manchester",
+  "11017" = "Middlesborough",
+  "11009" = "Newcastle",
+  "11013" = "Nottingham",
+  "11002" = "Oxford",
+  "11007" = "Reading",
+  "11014" = "Sheffield",
+  "10003" = "Stockport",
+  "11006" = "Stoke",
+  "11022" = "Swansea",
+  "11023" = "Wrexham",
+  "11025" = "Cheadle",
+  "11026" = "Reading",
+  "11027" = "Newcastle",
+  "11028" = "Bristol"
+)
+data <- data %>%
+  mutate(centre2 = case_when(
+    centre %in% as.numeric(names(centre_mapping)) ~ as.character(centre_mapping[as.character(centre)]),
+    TRUE ~ as.character(centre)
+  ))
+table(data$centre2)
+#pm25#
+data_pm25mean <- data %>%
+  group_by(centre2) %>%
+  summarize(
+    `2010` = mean(pm252010, na.rm = TRUE),
+    `2011` = mean(pm252011, na.rm = TRUE),
+    `2012` = mean(pm252012, na.rm = TRUE),
+    `2013` = mean(pm252013, na.rm = TRUE),
+    `2014` = mean(pm252014, na.rm = TRUE),
+    `2015` = mean(pm252015, na.rm = TRUE),
+    `2016` = mean(pm252016, na.rm = TRUE),
+    `2017` = mean(pm252017, na.rm = TRUE),
+    `2018` = mean(pm252018, na.rm = TRUE),
+    `2019` = mean(pm252019, na.rm = TRUE),
+    `2020` = mean(pm252020, na.rm = TRUE),
+  ) %>%
+  arrange(desc(`2010`))  # 排序步骤，确保2010年的值从大到小排序
+
+centre_order <- data_pm25mean$centre2
+
+
+data_pm25mean_long <- melt(data_pm25mean, id.vars = "centre2", 
+                           variable.name = "year", value.name = "pm25")
+data_pm25mean_long$centre2 <- factor(data_pm25mean_long$centre2, levels = rev(centre_order))
+ggplot(data_pm25mean_long, aes(x = year, y = centre2, fill = pm25)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "#FFFCCC", high = "red") +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, fill = "PM2.5") +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
+ggsave("PM2.5_heatmap.pdf", plot = last_plot(), width = 7, 
+       height = 4.5, units = "in", device = "pdf")
+##pm10##
+data_pm10mean <- data %>%
+  group_by(centre2) %>%
+  summarize(
+    `2010` = mean(pm102010, na.rm = TRUE),
+    `2011` = mean(pm102011, na.rm = TRUE),
+    `2012` = mean(pm102012, na.rm = TRUE),
+    `2013` = mean(pm102013, na.rm = TRUE),
+    `2014` = mean(pm102014, na.rm = TRUE),
+    `2015` = mean(pm102015, na.rm = TRUE),
+    `2016` = mean(pm102016, na.rm = TRUE),
+    `2017` = mean(pm102017, na.rm = TRUE),
+    `2018` = mean(pm102018, na.rm = TRUE),
+    `2019` = mean(pm102019, na.rm = TRUE),
+    `2020` = mean(pm102020, na.rm = TRUE),
+  ) %>%
+  arrange(desc(`2010`))  # 排序步骤，确保2010年的值从大到小排序
+
+centre_order <- data_pm10mean$centre2
+data_pm10mean_long <- melt(data_pm10mean, id.vars = "centre2", 
+                           variable.name = "year", value.name = "pm10")
+data_pm10mean_long$centre2 <- factor(data_pm10mean_long$centre2, levels = rev(centre_order))
+ggplot(data_pm10mean_long, aes(x = year, y = centre2, fill = pm10)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "#FFFCCC", high = "red") +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, fill = "PM10") +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
+ggsave("PM10_heatmap.pdf", plot = last_plot(), width = 7, 
+       height = 4.5, units = "in", device = "pdf")##nox热图####
+#####
+data_noxmean <- data %>%
+  group_by(centre2) %>%
+  summarize(
+    `2010` = mean(nox2010, na.rm = TRUE),
+    `2011` = mean(nox2011, na.rm = TRUE),
+    `2012` = mean(nox2012, na.rm = TRUE),
+    `2013` = mean(nox2013, na.rm = TRUE),
+    `2014` = mean(nox2014, na.rm = TRUE),
+    `2015` = mean(nox2015, na.rm = TRUE),
+    `2016` = mean(nox2016, na.rm = TRUE),
+    `2017` = mean(nox2017, na.rm = TRUE),
+    `2018` = mean(nox2018, na.rm = TRUE),
+    `2019` = mean(nox2019, na.rm = TRUE),
+    `2020` = mean(nox2020, na.rm = TRUE),
+  ) %>%
+  arrange(desc(`2010`))  # 排序步骤，确保2010年的值从大到小排序
+
+centre_order <- data_noxmean$centre2
+data_noxmean_long <- melt(data_noxmean, id.vars = "centre2", 
+                           variable.name = "year", value.name = "nox")
+data_noxmean_long$centre2 <- factor(data_noxmean_long$centre2, levels = rev(centre_order))
+ggplot(data_noxmean_long, aes(x = year, y = centre2, fill = nox)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "#FFFCCC", high = "red") +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, fill = "NOx") +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
+ggsave("NOx_heatmap.pdf", plot = last_plot(), width = 7, 
+       height = 4.5, units = "in", device = "pdf")
+##no2热图###
+data_no2mean <- data %>%
+  group_by(centre2) %>%
+  summarize(
+    `2010` = mean(no22010, na.rm = TRUE),
+    `2011` = mean(no22011, na.rm = TRUE),
+    `2012` = mean(no22012, na.rm = TRUE),
+    `2013` = mean(no22013, na.rm = TRUE),
+    `2014` = mean(no22014, na.rm = TRUE),
+    `2015` = mean(no22015, na.rm = TRUE),
+    `2016` = mean(no22016, na.rm = TRUE),
+    `2017` = mean(no22017, na.rm = TRUE),
+    `2018` = mean(no22018, na.rm = TRUE),
+    `2019` = mean(no22019, na.rm = TRUE),
+    `2020` = mean(no22020, na.rm = TRUE),
+  ) %>%
+  arrange(desc(`2010`))  # 排序步骤，确保2010年的值从大到小排序
+
+centre_order <- data_no2mean$centre2
+data_no2mean_long <- melt(data_no2mean, id.vars = "centre2", 
+                          variable.name = "year", value.name = "no2")
+data_no2mean_long$centre2 <- factor(data_no2mean_long$centre2, levels = rev(centre_order))
+ggplot(data_no2mean_long, aes(x = year, y = centre2, fill = no2)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "#FFFCCC", high = "red") +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, fill = "NO2") +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
+ggsave("NO2_heatmap.pdf", plot = last_plot(), width = 7, 
+       height = 4.5, units = "in", device = "pdf")
+###so2#####
+data_so2mean <- data %>%
+  group_by(centre2) %>%
+  summarize(
+    `2010` = mean(so22010, na.rm = TRUE),
+    `2011` = mean(so22011, na.rm = TRUE),
+    `2012` = mean(so22012, na.rm = TRUE),
+    `2013` = mean(so22013, na.rm = TRUE),
+    `2014` = mean(so22014, na.rm = TRUE),
+    `2015` = mean(so22015, na.rm = TRUE),
+    `2016` = mean(so22016, na.rm = TRUE),
+    `2017` = mean(so22017, na.rm = TRUE),
+    `2018` = mean(so22018, na.rm = TRUE),
+    `2019` = mean(so22019, na.rm = TRUE),
+    `2020` = mean(so22020, na.rm = TRUE),
+  ) %>%
+  arrange(desc(`2010`))  # 排序步骤，确保2010年的值从大到小排序
+
+centre_order <- data_so2mean$centre2
+data_so2mean_long <- melt(data_so2mean, id.vars = "centre2", 
+                          variable.name = "year", value.name = "so2")
+data_so2mean_long$centre2 <- factor(data_so2mean_long$centre2, levels = rev(centre_order))
+ggplot(data_so2mean_long, aes(x = year, y = centre2, fill = so2)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "#FFFCCC", high = "red") +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, fill = "SO2") +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
+ggsave("SO2_heatmap.pdf", plot = last_plot(), width = 7, 
+       height = 4.5, units = "in", device = "pdf")
+##bz####
+data_bzmean <- data %>%
+  group_by(centre2) %>%
+  summarize(
+    `2010` = mean(bz2010, na.rm = TRUE),
+    `2011` = mean(bz2011, na.rm = TRUE),
+    `2012` = mean(bz2012, na.rm = TRUE),
+    `2013` = mean(bz2013, na.rm = TRUE),
+    `2014` = mean(bz2014, na.rm = TRUE),
+    `2015` = mean(bz2015, na.rm = TRUE),
+    `2016` = mean(bz2016, na.rm = TRUE),
+    `2017` = mean(bz2017, na.rm = TRUE),
+    `2018` = mean(bz2018, na.rm = TRUE),
+    `2019` = mean(bz2019, na.rm = TRUE),
+    `2020` = mean(bz2020, na.rm = TRUE),
+  ) %>%
+  arrange(desc(`2010`))  # 排序步骤，确保2010年的值从大到小排序
+
+centre_order <- data_bzmean$centre2
+data_bzmean_long <- melt(data_bzmean, id.vars = "centre2", 
+                          variable.name = "year", value.name = "bz")
+data_bzmean_long$centre2 <- factor(data_bzmean_long$centre2, levels = rev(centre_order))
+ggplot(data_bzmean_long, aes(x = year, y = centre2, fill = bz)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "#FFFCCC", high = "red") +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, fill = "Benzene") +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
+ggsave("bz_heatmap.pdf", plot = last_plot(), width = 7, 
+       height = 4.5, units = "in", device = "pdf")
+
+#Organize the basic characteristic variables.#
+#income#
+data <- data %>%
+  rename(income=`738-0.0`)
+data$income[data$income == -3 | data$income == -1] <- NA
+table(data$income, useNA = "ifany")
+#townsend#
+data <- data %>%
+  rename(townsend=`22189-0.0`)
+#walk#
+data <- data %>%
+  rename(walk=`864-0.0`)
+#moderateactivity#
+data <- data %>%
+  rename(moderateactivity=`884-0.0`)
+#vigorousactivity#
+data <- data %>%
+  rename(vigorousactivity=`904-0.0`)
+#centre#
+data <- data %>%
+  rename(centre=`54-0.0`)
+#education#
+data <- data %>%
+  rename(education=`6138-0.0`)
+table(data$education, useNA = "ifany")
+data$education[data$education == -3 ] <- NA
+data$education[data$education == -7] <- 0
+data$education[data$education > 1] <- 0
+#tv computer drive#
+data <- data %>%
+  rename(tv_time=`1070-0.0`)
+table(data$tv_time, useNA = "ifany")
+data$tv_time[data$tv_time == -10] <- 0.5
+data$tv_time[data$tv_time == -3 | data$tv_time == -1] <- NA
+table(data$tv_time, useNA = "ifany")
+data <- data %>%
+  rename(computer_time=`1080-0.0`)
+table(data$computer_time, useNA = "ifany")
+data$computer_time[data$computer_time == -10] <- 0.5
+data$computer_time[data$computer_time == -3 | data$computer_time == -1] <- NA
+data <- data %>%
+  rename(driving_time=`1090-0.0`)
+table(data$driving_time, useNA = "ifany")
+data$driving_time[data$driving_time == -10] <- 0.5
+data$driving_time[data$driving_time == -3 | data$driving_time == -1] <- NA
+#sittime#
+data$sittime <- ifelse(is.na(data$tv_time) | is.na(data$computer_time) | is.na(data$driving_time),
+                       NA,
+                       data$tv_time + data$computer_time + data$driving_time)
+table(data$sittime, useNA = "ifany")
+#smoke#
+data <- data %>%
+  rename(homesmoke=`1269-0.0`)
+table(data$homesmoke, useNA = "ifany")
+data$homesmoke[data$homesmoke == -3 | data$homesmoke == -1] <- NA
+data <- data %>%
+  rename(outsidesmoke=`1279-0.0`)
+table(data$outsidesmoke, useNA = "ifany")
+data$outsidesmoke[data$outsidesmoke == -3 | data$outsidesmoke == -1] <- NA
+#cookedvegetable#
+data <- data %>%
+  rename(cookedvegetable=`1289-0.0`)
+table(data$cookedvegetable, useNA = "ifany")
+data$cookedvegetable[data$cookedvegetable == -10] <- 0.5
+data$cookedvegetable[data$cookedvegetable == -3 | data$cookedvegetable == -1] <- NA
+#rawvegetable#
+data <- data %>%
+  rename(rawvegetable=`1299-0.0`)
+table(data$rawvegetable, useNA = "ifany")
+data$rawvegetable[data$rawvegetable == -10] <- 0.5
+data$rawvegetable[data$rawvegetable == -3 | data$rawvegetable == -1] <- NA
+#freshfruit
+data <- data %>%
+  rename(freshfruit=`1309-0.0`)
+table(data$freshfruit, useNA = "ifany")
+data$freshfruit[data$freshfruit == -10] <- 0.5
+data$freshfruit[data$freshfruit == -3 | data$freshfruit == -1] <- NA
+#processedmeat#
+data <- data %>%
+  rename(processedmeat=`1349-0.0`)
+table(data$processedmeat, useNA = "ifany")
+data$processedmeat[data$processedmeat == -3 | data$processedmeat == -1] <- NA
+#oilyfish#
+data <- data %>%
+  rename(oilyfish=`1329-0.0`)
+table(data$oilyfish, useNA = "ifany")
+data$oilyfish[data$oilyfish == -3 | data$oilyfish == -1] <- NA
+#hotdrink
+data <- data %>%
+  rename(hotdrinktemp=`1518-0.0`)
+table(data$hotdrinktemp, useNA = "ifany")
+data$hotdrinktemp[data$hotdrinktemp == -2] <- 0
+data$hotdrinktemp[data$hotdrinktemp == -3] <- NA
+#alcoholintake#
+data <- data %>%
+  rename(alcoholintake=`1558-0.0`)
+table(data$alcoholintake, useNA = "ifany")
+data$alcoholintake[data$alcoholintake == -3] <- NA
+#solidfuelcooking 0无使用，1使用#
+data <- data %>%
+  rename(solidfuelcooking=`6139-0.0`)
+table(data$solidfuelcooking, useNA = "ifany")
+data$solidfuelcooking[data$solidfuelcooking %in% c(1, 2, -7)] <- 0
+data$solidfuelcooking[data$solidfuelcooking %in% c(-3, -1)] <- NA
+data$solidfuelcooking[data$solidfuelcooking == 3] <- 1
+#smokingstatus#
+data <- data %>%
+  rename(smokingstatus=`20116-0.0`)
+table(data$smokingstatus, useNA = "ifany")
+data$smokingstatus[data$smokingstatus == -3] <- NA
+#urban 0 rural 1 town 2 urban#
+data$urban <- ifelse(data$`20118-0.0` %in% c(3, 4, 7, 8, 16, 17, 18), 0,
+                     ifelse(data$`20118-0.0` %in% c(2, 6, 13, 14, 15), 1,
+                            ifelse(data$`20118-0.0` %in% c(1, 5, 11, 12), 2, NA)))
+table(data$urban, useNA = "ifany")
+#generalhappiness,缺失太多，不能用#
+data <- data %>%
+  rename(generalhappiness=`20459-0.0`)
+table(data$generalhappiness, useNA = "ifany")
+data$generalhappiness[data$generalhappiness == -818 | data$generalhappiness == -121] <- NA
+
+#ethnic 0白人 1亚洲人 2 黑人 3 其他#
+data$ethnic <- ifelse(data$`21000-0.0` %in% c(1,1001,2001,3001,4001), 0,
+                      ifelse(data$`21000-0.0` %in% c(3,1003,2003,3003,40031,5), 1,
+                             ifelse(data$`21000-0.0` %in% c(4,2004,3004), 2, 
+                                    ifelse(data$`21000-0.0` %in% c(2,1002,2002,3002,4002,6), 3,NA))))
+table(data$`ethnic`, useNA = "ifany")
+#MET#
+data$MET <- rowSums(data[, c("22037-0.0", "22038-0.0", "22039-0.0")], na.rm = TRUE)
+data$MET[is.na(data$`22037-0.0`) & is.na(data$`22038-0.0`) & is.na(data$`22039-0.0`)] <- NA
+#BMI Underweight 0 Normal1 Overweight2 Obese3#
+data$BMI <- cut(data$`23104-0.0`, breaks = c(0, 18.5, 24.9, 29.9, Inf),
+                labels = c(0, 1, 2, 3),
+                include.lowest = TRUE, na.allow = TRUE)
+table(data$BMI, useNA = "ifany")
+data$BMI_nmu<-data$`23104-0.0`
+
+
+#age#
+data$age <- ifelse(is.na(data$birth), NA, 2010 - data$birth)
+#familyhistory#
+data$familyhistory <- ifelse(data$`20107-0.0` %in% c(3, 4, 5) | 
+                               data$`20110-0.0` %in% c(3, 4, 5) |
+                               data$`20111-0.0` %in% c(3, 4, 5), 1, 0)
+table(data$familyhistory, useNA = "ifany")
+
+data$startime <- 2010
+table(data$startime)
+table(data$endtime)
+table(data$ectime)
+names(data)
+data$followendtime <- pmin(data$endtime, data$ectime,na.rm = TRUE)
+data$followtime<-NA
+data$followtime<-data$followendtime-data$startime
+table(data$followtime)
+median(data$followtime)
+####整理分组#########
+#waisthipratiogroup#
+
+q50_waisthipratio <- quantile(data$waisthipratio, probs = 0.50, na.rm = TRUE)
+data$waisthipratiogroup <- ifelse(is.na(data$waisthipratio), 9,
+                                   cut(data$waisthipratio,
+                                       breaks = c(-Inf,  q50_waisthipratio, Inf),
+                                       labels = c(1, 2),
+                                       include.lowest = TRUE))
+data$waisthipratiogroup <- factor(data$waisthipratiogroup, levels = c(1, 2, 9))
+table(data$waisthipratiogroup)
+
+#homesmoke#
+table(data$homesmoke,useNA = "ifany")
+#outsidesmoke#
+table(data$outsidesmoke,useNA = "ifany")
+#secondhandsomke#
+data$secondhandsomke <- ifelse(is.na(data$homesmoke) & is.na(data$outsidesmoke), NA, 
+                                ifelse(data$homesmoke + data$outsidesmoke >= 1, 2, 1))
+data$secondhandsomke <- ifelse(is.na(data$secondhandsomke), 9, data$secondhandsomke)
+table(data$secondhandsomke,useNA = "ifany")
+data$secondhandsomke <- factor(data$secondhandsomke, levels = c(1, 2, 9))
+
+#alcoholintake#
+table(data$alcoholintake,useNA = "ifany")
+data$alcoholintakegroup <- ifelse(is.na(data$alcoholintake), 9,
+                                cut(data$alcoholintake,
+                                breaks = c(-Inf,2,4, Inf),
+                                labels = c(1,2,3),
+                                include.lowest = TRUE))
+data$alcoholintakegroup <- factor(data$alcoholintakegroup, levels = c(1, 2,3, 9))
+table(data$alcoholintakegroup,useNA = "ifany")
+
+
+
+data$alcoholintakegroup2 <- ifelse(is.na(data$alcoholintake), 9,
+                               cut(data$alcoholintake,
+                                breaks = c(-Inf ,2, Inf),
+                                labels = c(1,2),
+                                include.lowest = TRUE))
+table(data$alcoholintakegroup2,useNA = "ifany")
+data$alcoholintakegroup2 <- factor(data$alcoholintakegroup2, levels = c(1, 2, 9))
+#cookedvegetable#
+table(data$cookedvegetable,useNA = "ifany")
+table(data$cookedvegetablegroup,useNA = "ifany")
+q50_cookedvegetable <- quantile(data$cookedvegetable, probs = 0.50, na.rm = TRUE)
+data$cookedvegetablegroup <- ifelse(is.na(data$cookedvegetable), 9,
+                                  cut(data$cookedvegetable,
+                                  breaks = c(-Inf ,q50_cookedvegetable, Inf),
+                                  labels = c(1, 2),
+                                  include.lowest = TRUE))
+data$cookedvegetablegroup <- factor(data$cookedvegetablegroup, levels = c(1, 2, 9))
+#rawvegetable#
+table(data$rawvegetable,useNA = "ifany")
+q50_rawvegetable <- quantile(data$rawvegetable, probs = 0.50, na.rm = TRUE)
+data$rawvegetablegroup <- ifelse(is.na(data$rawvegetable), 9,
+                               cut(data$rawvegetable,
+                               breaks = c(-Inf ,q50_rawvegetable, Inf),
+                               labels = c(1,2),
+                               include.lowest = TRUE))
+data$rawvegetablegroup <- factor(data$rawvegetablegroup, levels = c(1, 2, 9))
+#freshfruit#
+table(data$freshfruitgroup,useNA = "ifany")
+q50_freshfruit <- quantile(data$freshfruit, probs = 0.50, na.rm = TRUE)
+data$freshfruitgroup <- ifelse(is.na(data$freshfruit), 9,
+                             cut(data$freshfruit,
+                             breaks = c(-Inf ,q50_freshfruit, Inf),
+                             labels = c(1,2),
+                             include.lowest = TRUE))
+data$freshfruitgroup <- factor(data$freshfruitgroup, levels = c(1, 2, 9))
+#processedmeat#
+table(data$processedmeat,useNA = "ifany")
+q50_processedmeat <- quantile(data$processedmeat, probs = 0.50, na.rm = TRUE)
+data$processedmeatgroup <- ifelse(is.na(data$processedmeat), 9,
+                                cut(data$processedmeat,
+                                breaks = c(-Inf ,q50_processedmeat, Inf),
+                                labels = c(1,2),
+                                include.lowest = TRUE))
+data$processedmeatgroup <- factor(data$processedmeatgroup, levels = c(1, 2, 9))
+table(data$processedmeatgroup,useNA = "ifany")
+#oilyfish#
+table(data$oilyfish,useNA = "ifany")
+data$oilyfishgroup <- ifelse(is.na(data$oilyfish), 9,
+                           cut(data$oilyfish,
+                           breaks = c(-Inf ,0,1,2, Inf),
+                           labels = c(1,2,3,4),
+                           include.lowest = TRUE))
+data$oilyfishgroup <- factor(data$oilyfishgroup, levels = c(1, 2,3,4, 9))
+table(data$oilyfishgroup,useNA = "ifany")
+#hotdrinktemp#
+table(data$hotdrinktemp,useNA = "ifany")
+data$hotdrinktempgroup<-data$hotdrinktemp+1
+table(data$hotdrinktempgroup,useNA = "ifany")
+data$hotdrinktempgroup <- replace(data$hotdrinktempgroup, is.na(data$hotdrinktempgroup), 9)
+data$hotdrinktempgroup <- factor(data$hotdrinktempgroup, levels = c(1, 2,3,4,9))
+
+#MET#
+table(data$MET,useNA = "ifany")
+q25_MET <- quantile(data$MET, probs = 0.25, na.rm = TRUE)
+q50_MET <- quantile(data$MET, probs = 0.50, na.rm = TRUE)
+q75_MET <- quantile(data$MET, probs = 0.75, na.rm = TRUE)
+data$METgroup <- ifelse(is.na(data$MET), 9,
+                      cut(data$MET,
+                      breaks = c(-Inf, q25_MET, q50_MET, q75_MET, Inf),
+                      labels = c(1,2,3,4),
+                      include.lowest = TRUE))
+data$METgroup <- factor(data$METgroup, levels = c(1, 2,3,4,9))
+table(data$METgroup,useNA = "ifany")
+#moderateactivity#
+table(data$moderateactivity,useNA = "ifany")
+#sittime#
+table(data$sittime,useNA = "ifany")
+q25_sittime <- quantile(data$sittime, probs = 0.25, na.rm = TRUE)
+q50_sittime <- quantile(data$sittime, probs = 0.50, na.rm = TRUE)
+q75_sittime <- quantile(data$sittime, probs = 0.75, na.rm = TRUE)
+data$sittimegroup <- ifelse(is.na(data$sittime), 9,
+                         cut(data$sittime,
+                          breaks = c(-Inf, q25_sittime, q50_sittime, q75_sittime, Inf),
+                          labels = c( 1,2,3,4),
+                          include.lowest = TRUE))
+data$sittimegroup <- factor(data$sittimegroup, levels = c(1, 2,3,4,9))
+table(data$sittimegroup,useNA = "ifany")
+#income#
+table(data$income,useNA = "ifany")
+data$incomegroup <- ifelse(is.na(data$income), 9,
+                             cut(data$income,
+                                 breaks = c(-Inf, 2, Inf),
+                                 labels = c( 1,2),
+                                 include.lowest = TRUE))
+data$incomegroup <- factor(data$incomegroup, levels = c(1,2,9))
+table(data$incomegroup,useNA = "ifany")
+
+#BMI#
+table(data$BMI,useNA = "ifany")
+data$BMIgroup<-data$BMI
+data$BMIgroup <- as.numeric(data$BMIgroup)
+data$BMIgroup[is.na(data$BMIgroup)] <- 9
+data$BMIgroup <- factor(data$BMIgroup, levels = c(1, 2,3,4,9)) 
+table(data$BMIgroup,useNA = "ifany")
+table(data$BMIgroup)
+#education#
+table(data$education,useNA = "ifany")
+data$educationgroup<-data$education+1
+data$educationgroup <- replace(data$educationgroup, is.na(data$educationgroup), 9)
+data$educationgroup <- factor(data$educationgroup , levels = c(1, 2, 9))
+table(data$educationgroup,useNA = "ifany")
+#urban#
+table(data$urban,useNA = "ifany")
+data$urbangroup<-data$urban+1
+data$urbangroup <- replace(data$urbangroup, is.na(data$urbangroup), 9)
+data$urbangroup <- factor(data$urbangroup , levels = c(1,2,3,9))
+table(data$urbangroup,useNA = "ifany")
+#smokingstatus#
+table(data$smokingstatus,useNA = "ifany")
+data$smokingstatusgroup<-data$smokingstatus+1
+data$smokingstatusgroup <- replace(data$smokingstatusgroup, is.na(data$smokingstatusgroup), 9)
+data$smokingstatusgroup <- factor(data$smokingstatusgroup , levels = c(1,2,3,9))
+table(data$smokingstatusgroup,useNA = "ifany")
+#solidfuelcooking#
+table(data$solidfuelcooking,useNA = "ifany")
+data$solidfuelcookinggroup<-data$solidfuelcooking+1
+data$solidfuelcookinggroup <- replace(data$solidfuelcookinggroup, is.na(data$solidfuelcookinggroup), 9)
+data$solidfuelcookinggroup <- factor(data$solidfuelcookinggroup , levels = c(1,2,9))
+table(data$solidfuelcookinggroup,useNA = "ifany")
+
+
+
+q25_age<- quantile(data2$age, probs = 0.25, na.rm = TRUE)
+q50_age<- quantile(data2$age, probs = 0.50, na.rm = TRUE)
+q75_age<- quantile(data2$age, probs = 0.75, na.rm = TRUE)
+data$agegroup <- cut(data$age,
+                      breaks = c(-Inf,q25_age, q50_age,q75_age,Inf),
+                      labels = c(0,1,2,3),
+                      include.lowest = TRUE)
+cat(q25_age,q50_age,q75_age)
+
+data$gastricreflux<-as.factor(data$gastricreflux)
+data$gender<-as.factor(data$gender)
+data$familyhistory<-as.factor(data$familyhistory)
+
+
+#Calculate the baseline characteristics of participants (Table 1).#
+library(autoReg)
+
+baseline_table1=gaze(~age +MET+waisthipratio+BMI_nmu+BMIgroup+gender
+                     +educationgroup+urbangroup+familyhistory
+                     +smokingstatusgroup+secondhandsomke+alcoholintakegroup2+cookedvegetablegroup
+                     +rawvegetablegroup+processedmeatgroup+freshfruitgroup+oilyfishgroup
+                     +solidfuelcookinggroup+hotdrinktempgroup+sittime+sittimegroup
+                     +incomegroup +gastricreflux+avpm25+avpm10+avno2
+                     +avnox+avso2+avbz
+                     ,data=data,digits=1)
+print(baseline_table1)
+baseline_table2=gaze(avno2group~age +MET+waisthipratio+BMI_nmu+BMIgroup+gender
+                      +educationgroup+urbangroup+familyhistory
+                     +smokingstatusgroup+secondhandsomke+alcoholintakegroup2+cookedvegetablegroup
+                     +rawvegetablegroup+processedmeatgroup+freshfruitgroup+oilyfishgroup
+                     +solidfuelcookinggroup+hotdrinktempgroup+sittime+sittimegroup
+                     +incomegroup +gastricreflux+avpm25+avpm10+avno2
+                     +avnox+avso2+avbz
+                     ,data=data,digits=1)
+print(baseline_table2)
+
